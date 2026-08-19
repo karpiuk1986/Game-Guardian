@@ -15,10 +15,10 @@ jobs:
         with:
           xcode-version: '15.4'
 
-      - name: Build App Project
+      - name: Build and Package App
         run: |
           mkdir -p SaveModderApp/SaveModderApp
-          mv ContentView.swift SaveModderApp/SaveModderApp/
+          cp ContentView.swift SaveModderApp/SaveModderApp/
           
           cat << 'EOF' > SaveModderApp/SaveModderApp/App.swift
           import SwiftUI
@@ -35,11 +35,50 @@ jobs:
 
           cd SaveModderApp
           
-          xcrun swift package init --type executable || true
-          xcodebuild -project SaveModderApp.xcodeproj -scheme SaveModderApp -sdk iphoneos -configuration Release CODE_SIGNING_ALLOWED=NO -derivedDataPath build || true
-          
-          mkdir -p Payload
+          # Створення повноцінного проєкту з Info.plist
           mkdir -p Payload/SaveModderApp.app
+          
+          cat << 'EOF' > Payload/SaveModderApp.app/Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>SaveModderApp</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.gamemodder.app</string>
+              <key>CFBundleName</key>
+              <string>SaveModder</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0</string>
+              <key>CFBundleVersion</key>
+              <string>1</string>
+              <key>LSRequiresIPhoneOS</key>
+              <true/>
+              <key>UILaunchStoryboardName</key>
+              <string>LaunchScreen</string>
+              <key>UIRequiredDeviceCapabilities</key>
+              <array>
+                  <string>arm64</string>
+              </array>
+              <key>UISupportedInterfaceOrientations</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+              </array>
+          </dict>
+          </plist>
+          EOF
+
+          # Компіляція Swift-файлів під ARM64 для iOS
+          swiftc -sdk $(xcrun --sdk iphoneos --show-sdk-path) \
+                 -target arm64-apple-ios15.0 \
+                 -emit-executable \
+                 SaveModderApp/App.swift SaveModderApp/ContentView.swift \
+                 -o Payload/SaveModderApp.app/SaveModderApp
+
+          # Упаковка у файл IPA
           zip -r ../SaveModder.ipa Payload
 
       - name: Upload IPA Artifact
