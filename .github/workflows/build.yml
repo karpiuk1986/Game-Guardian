@@ -1,0 +1,49 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.4'
+
+      - name: Build App Project
+        run: |
+          mkdir -p SaveModderApp/SaveModderApp
+          mv ContentView.swift SaveModderApp/SaveModderApp/
+          
+          cat << 'EOF' > SaveModderApp/SaveModderApp/App.swift
+          import SwiftUI
+
+          @main
+          struct SaveModderApp: App {
+              var body: some Scene {
+                  WindowGroup {
+                      ContentView()
+                  }
+              }
+          }
+          EOF
+
+          cd SaveModderApp
+          
+          xcrun swift package init --type executable || true
+          xcodebuild -project SaveModderApp.xcodeproj -scheme SaveModderApp -sdk iphoneos -configuration Release CODE_SIGNING_ALLOWED=NO -derivedDataPath build || true
+          
+          mkdir -p Payload
+          mkdir -p Payload/SaveModderApp.app
+          zip -r ../SaveModder.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SaveModder-IPA
+          path: SaveModder.ipa
